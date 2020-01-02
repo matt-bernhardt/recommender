@@ -11,6 +11,8 @@ from sklearn.feature_extraction import text
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 
+from log import Log
+
 # This attempts to perform LDA on the text of the notes from ArchivesSpace.
 
 def loadNotes(filename):
@@ -22,84 +24,58 @@ def loadNotes(filename):
 	file.closed
 	return data
 
-def summarizeModel(data):
-	print('model type:     ' + str(type(data)))
-	print('model topics:   ' + str(len(data.components_)))
-	print('model features: ' + str(len(data.components_[0])))
-	print('sample topic:')
-	print(str(data.components_[0]))
-	print('model parameters:')
-	print(str(data.get_params()))
-	print('')
-
-def summarizeTF(data):
-	print('matrix type:      ' + str(type(data)))
-	print('tf record count:  ' + str(len(data.toarray())))
-	print('tf record length: ' + str(len(data.toarray()[0])) + ' features')
-	print('sample record:    ' + str(data.toarray()[0]))
-	print('matrix excerpt:\n' + str(data.toarray()))
-	print('')
-
-def summarizeUniverse(data):
-	print('data type: ' + str(type(data)))
-	print('data points: ' + str(len(data)))
-	print('dimensions:  ' + str(len(data[0])))
-	print('sample data: ' + str(data[0]))
-	print('excerpt:')
-	print(str(data))
-	print('')
-
 if __name__ == "__main__":
 
-	print("Loading saved data")
+	log = Log('logs/load-and-recommend.log')
+	log.message('Loading saved data')
 
 	# TF
-	print("1a. TF")
+	log.message("1a. TF")
 	tf = load_npz('data/output/tf.npz')
-	summarizeTF(tf)
+	log.summarizeTF(tf)
 
 	# TF Vectorizer
-	print('1b. TF Vectorizer')
+	log.message('1b. TF Vectorizer')
 	tf_vectorizer = pickle.load(open('data/output/tf_vectorizer.pk', 'rb'))
-	print(str(type(tf_vectorizer)))
-	print('')
+	log.message(str(type(tf_vectorizer)))
+	log.message('')
 
 	# Model
-	print("2. Model")
+	log.message("2. Model")
 	lda = pickle.load(open('data/output/lda_model.pk', 'rb'))
-	summarizeModel(lda)
+	log.summarizeModel(lda)
 
 	# Universe
-	print("3. Universe")
+	log.message("3. Universe")
 	universe = pickle.load(open('data/output/universe.pk', 'rb'))
 	universe_expanded = pickle.load(open('data/output/universe_expanded.pk', 'rb'))
 	# universe = numpy.fromfile('data/output/trained-from-notes.dat')
-	summarizeUniverse(universe)
+	log.summarizeUniverse(universe)
 
 	# Now trying to submit a new document to receive recommendations
-	print('=================================================================')
-	print('=================================================================')
-	print('=================================================================')
-	print('How about arbitrary input?')
+	log.message('=================================================================')
+	log.message('=================================================================')
+	log.message('=================================================================')
+	log.message('How about arbitrary input?')
 	trial = ['Distinctive Collections collects, preserves, and fosters the use of unique and rare materials such as tangible and digital archives, manuscripts, ephemera, artists’ books, and more. With these collections the Libraries seeks to cultivate an interest in the past, present, and future; the humanistic and the scientific; and the physical and the digital in order to inspire and enable research, learning, experimentation, and play for a diverse community of users.']
 	# trial = ['Noam Chomsky is a linguist and political activist. The Noam Chomsky personal archives consists of Chomsky s lecture, speaking, and travel notes, writings, correspondence, research materials, collected serial publications, and other materials documenting his life and work. The collection is divided into six series: Biographical Materials, Correspondence, Writings and Films, Background and Clippings, Speaking Engagements and Travel']
 	# trial = ['Collected papers of linguistics and humanities professor Noam Chomsky']
-	print(str(trial))
-	print('\n\n')
+	log.message(str(trial))
+	log.message('\n\n')
 	trial_matrix = tf_vectorizer.transform(trial)
-	print(str(type(trial_matrix)))
-	print(str(trial_matrix))
+	log.message(str(type(trial_matrix)))
+	log.message(str(trial_matrix))
 	trial_affinity = lda.transform(trial_matrix)
-	print(str(trial_affinity[0]))
+	log.message(str(trial_affinity[0]))
 
 	# comparing our results to the universe of known data
-	print('=================================================================')
-	print('=================================================================')
-	print('=================================================================')
-	print('Comparing results to known data')
+	log.message('=================================================================')
+	log.message('=================================================================')
+	log.message('=================================================================')
+	log.message('Comparing results to known data')
 	dummy = [trial_affinity[0]]
-	print('Location of search text: ' + str(dummy))
-	print('')
+	log.message('Location of search text: ' + str(dummy))
+	log.message('')
 
 	# Calculate distance to all documents using cosine_distance
 	trial_pairwise = pairwise.cosine_distances(universe, dummy)
@@ -109,25 +85,26 @@ if __name__ == "__main__":
 	# meaningful output - because if we just sort the pairwise results, we
 	# only have a number.
 	universe_pairwise = numpy.append(universe_expanded, trial_pairwise, axis=1)
-	print('Random record:')
-	print(str(universe_pairwise[0, 0:2]))
-	print('Location:        ' + str(universe_pairwise[0, 2:6]))
-	print('Relevance score: ' + str(universe_pairwise[0, 6]))
+	log.message('Random record:')
+	log.message(str(universe_pairwise[0, 0:2]))
+	log.message('Location:        ' + str(universe_pairwise[0, 2:6]))
+	log.message('Relevance score: ' + str(universe_pairwise[0, 6]))
 
-	print('')
+	log.message('')
 
 	# Sort the universe_pairwise array by the final column (number 7 right now)
 	# comparing our results to the universe of known data
-	print('=================================================================')
-	print('=================================================================')
-	print('=================================================================')
-	print('You searched for:')
-	print(str(trial))
-	print('\n')
-	print('Recommender results')
+	log.message('=================================================================')
+	log.message('=================================================================')
+	log.message('=================================================================')
+	log.message('You searched for:')
+	log.message(str(trial))
+	log.message('\n')
+	log.message('Recommender results')
 	universe_results = universe_pairwise[numpy.argsort(universe_pairwise[:,6])]
 	for item in universe_results[:5]:
-		print(str(item[6]) + ': ' + str(item[0]))
-	print('')
+		log.message(str(item[6]) + ': ' + str(item[0]))
+	log.message('')
 
-	print('Finished!')
+	log.message('Finished!')
+	log.end()
